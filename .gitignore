@@ -1,0 +1,39 @@
+# Byte-compiled / optimized / Cython artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.lib
+recovered_src/engine/_fast_core.c
+
+# Portable Python environment
+python314_portable/
+
+# PyInstaller build artifacts
+build/
+dist/
+*.spec
+*.exe
+
+# Keep project PyInstaller specs
+!PyCaesar.spec
+!PyCaesarUCI.spec
+
+# External engines for calibration (keep only the Syzygy helper script)
+tools/*
+!tools/download_syzygy.py
+
+# Build and benchmark logs
+build_log.txt
+build_gui.log
+build_uci.log
+bench_*.log
+
+# Old directories & local archives
+jules/
+jules_solution/
+archive/
+архив клод код/
+.claude/
+*.zip

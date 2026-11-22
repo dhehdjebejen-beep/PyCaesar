@@ -1,0 +1,4 @@
+python-chess>=1.10.0
+PyQt6>=6.5.0
+cython>=3.0.0
+setuptools>=68.0.0
