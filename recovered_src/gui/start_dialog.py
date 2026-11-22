@@ -16,8 +16,8 @@ MODE_PLAY_WHITE = "play_white"
 MODE_PLAY_BLACK = "play_black"
 MODE_HVH = "hvh"
 
-BOT_VERSION = "1.0.0"
-UI_VERSION = "1.0.0"
+BOT_VERSION = "2.0.0 (Final)"
+UI_VERSION = "2.0.0"
 
 class StartDialog(QDialog):
     """Диалог выбора режима игры."""
@@ -141,7 +141,7 @@ class StartDialog(QDialog):
         name_lbl.setStyleSheet("color: #2d5016;")
         lay.addWidget(name_lbl)
 
-        desc_lbl = QLabel("Шахматный движок на чистом Python")
+        desc_lbl = QLabel("Шахматный движок на Python + 64-битном Cython")
         desc_lbl.setFont(QFont("Segoe UI", 10))
         desc_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         desc_lbl.setStyleSheet("color: #555;")
@@ -149,14 +149,30 @@ class StartDialog(QDialog):
 
         lay.addSpacing(6)
 
+        try:
+            from engine.search import _CythonSearcher
+            core_label = "Cython 64-bit bitboards (_fast_core)" if _CythonSearcher is not None else "FastBoard (Python fallback)"
+        except Exception:
+            core_label = "FastBoard"
+
+        try:
+            from engine.tablebase import SyzygyTablebase
+            tb = SyzygyTablebase()
+            tb_label = f"Syzygy (до {tb.max_pieces} фигур)" if tb.is_available else "не подключены"
+            tb.close()
+        except Exception:
+            tb_label = "не подключены"
+
         details_text = (
             f"Версия движка:  {BOT_VERSION}\n"
             f"Версия UI:  {UI_VERSION}\n"
             f"\n"
-            f"Алгоритм:  Negamax + Alpha-Beta\n"
-            f"Дебюты:  Polyglot book.bin\n"
-            f"MultiPV:  2 лучших хода\n"
-            f"Рейтинг:  ~2200-2300 ELO"
+            f"Ядро:  {core_label}\n"
+            f"Поиск:  PVS + Negamax + PeSTO + LMR/NMP/SEE\n"
+            f"Дебюты:  Polyglot (book.bin)\n"
+            f"Эндшпили:  {tb_label}\n"
+            f"Сила игры:  10 уровней (400–2637 Elo, Stockfish 19)\n"
+            f"Протоколы:  PyQt6 GUI + UCI"
         )
         details_lbl = QLabel(details_text)
         details_lbl.setFont(QFont("Segoe UI", 10))

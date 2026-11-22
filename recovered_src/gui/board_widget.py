@@ -97,6 +97,10 @@ class BoardWidget(QWidget):
 
     def lock_input(self) -> None:
         self._input_locked = True
+        self._dragging = False
+        self._drag_piece = None
+        self._drag_from = None
+        self._drag_pos = None
         self._clear_selection()
 
     def unlock_input(self) -> None:

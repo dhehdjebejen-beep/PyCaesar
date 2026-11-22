@@ -182,7 +182,7 @@ class MainWindow(QMainWindow):
 
         self.btn_settings = QPushButton('⚙')
         self.btn_settings.setStyleSheet(btn_style)
-        self.btn_settings.setToolTip('Настройки движка: время на ход, уровень силы, процессы')
+        self.btn_settings.setToolTip('Настройки движка: время на ход, уровень силы, подсказки')
         self.btn_settings.clicked.connect(self._show_settings)
         toolbar_layout.addWidget(self.btn_settings)
 
@@ -337,6 +337,9 @@ class MainWindow(QMainWindow):
         self.hint_worker.progress.connect(self._on_hint_progress)
         self._hint_thinking = False
         self._hint_request_id = 0
+        self._hint_timer = QTimer(self)
+        self._hint_timer.setSingleShot(True)
+        self._hint_timer.timeout.connect(self._launch_hint_analysis)
 
     def _update_buttons(self):
         can_undo = len(self.move_history) > 0 and not self._engine_thinking
@@ -572,16 +575,12 @@ class MainWindow(QMainWindow):
             if reply != QMessageBox.StandardButton.Yes:
                 return
 
+        self._stop_hint_analysis()
+        self._engine_request_id += 1
         if self.engine_worker.isRunning():
             self.engine_worker.terminate()
-            self.engine_worker.wait()
-
-        if self.hint_worker.isRunning():
-            self.hint_worker.terminate()
-            self.hint_worker.wait()
 
         self._engine_thinking = False
-        self._hint_thinking = False
         self.back_to_menu.emit()
         self.close()
 
@@ -600,16 +599,12 @@ class MainWindow(QMainWindow):
             )
             return
 
+        self._stop_hint_analysis()
+        self._engine_request_id += 1
         if self.engine_worker.isRunning():
             self.engine_worker.terminate()
-            self.engine_worker.wait()
-
-        if self.hint_worker.isRunning():
-            self.hint_worker.terminate()
-            self.hint_worker.wait()
 
         self._engine_thinking = False
-        self._hint_thinking = False
 
         self.board = new_board
         self.start_fen = new_board.fen()
@@ -737,15 +732,19 @@ class MainWindow(QMainWindow):
             return True
         return self.analysis_mode != self.ANALYSIS_OFF
 
+    def _stop_hint_analysis(self):
+        """Мгновенно и без блокировки GUI отменить текущий расчёт подсказок."""
+        self._hint_timer.stop()
+        self._hint_request_id += 1
+        self._hint_thinking = False
+        self.hint_worker.cancel()
+
     def _apply_analysis_mode(self):
         """Привести интерфейс в соответствие с выбранным режимом подсказок."""
         allowed = self._engine_output_allowed()
 
         if not allowed:
-            if self.hint_worker.isRunning():
-                self.hint_worker.terminate()
-                self.hint_worker.wait()
-            self._hint_thinking = False
+            self._stop_hint_analysis()
             self.board_widget.set_best_move(None)
             self._eval_visible = False
             self.eval_bar.setVisible(False)
@@ -765,10 +764,7 @@ class MainWindow(QMainWindow):
             return
         self.analysis_mode = index
 
-        if self.hint_worker.isRunning():
-            self.hint_worker.terminate()
-            self.hint_worker.wait()
-            self._hint_thinking = False
+        self._stop_hint_analysis()
         self.board_widget.set_best_move(None)
         self.info_label.setText('')
 
@@ -782,6 +778,32 @@ class MainWindow(QMainWindow):
         self._start_hint_analysis()
 
     def _start_hint_analysis(self):
+        # Всегда сначала отменяем предыдущий расчёт и сбрасываем флаг,
+        # иначе быстрые ходы или смена стороны при ANALYSIS_WHITE/BLACK
+        # могли оставить _hint_thinking == True навсегда.
+        self._stop_hint_analysis()
+
+        if self.game_mode == MODE_HVH:
+            idx = self.analysis_mode
+            if idx == self.ANALYSIS_OFF:
+                return
+            if idx == self.ANALYSIS_WHITE and self.board.turn == chess.BLACK:
+                self.info_label.setText('')
+                self._update_status('Ход чёрных (подсказки только для белых)')
+                return
+            if idx == self.ANALYSIS_BLACK and self.board.turn == chess.WHITE:
+                self.info_label.setText('')
+                self._update_status('Ход белых (подсказки только для чёрных)')
+                return
+
+        if self.board.is_game_over():
+            return
+
+        # Небольшой debounce (40 мс) гарантирует мгновенный отклик при серии
+        # быстрых ходов подряд и даёт старому потоку <1 мс на чистый выход.
+        self._hint_timer.start(40)
+
+    def _launch_hint_analysis(self):
         if self.game_mode == MODE_HVH:
             idx = self.analysis_mode
             if idx == self.ANALYSIS_OFF:
@@ -790,14 +812,6 @@ class MainWindow(QMainWindow):
                 return
             if idx == self.ANALYSIS_BLACK and self.board.turn == chess.WHITE:
                 return
-
-        if self.hint_worker.isRunning():
-            self.hint_worker.terminate()
-            self.hint_worker.wait()
-            self._hint_thinking = False
-
-        if self._hint_thinking:
-            return
 
         if self.board.is_game_over():
             return
@@ -949,8 +963,18 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, 'Анализ', 'Нет ходов для анализа. Сначала сыграйте партию.')
             return
 
-        dialog = AnalysisDialog(self.move_history, self)
+        dialog = AnalysisDialog(self.move_history, self, start_fen=self.start_fen)
         dialog.exec()
+
+    def closeEvent(self, event):
+        self._hint_timer.stop()
+        if self.engine_worker.isRunning():
+            self.engine_worker.terminate()
+        if self.hint_worker.isRunning():
+            self.hint_worker.terminate()
+        self.engine.close()
+        self._hint_engine.close()
+        super().closeEvent(event)
 
     def _check_game_over(self) -> bool:
         if not self.board.is_game_over():
@@ -988,16 +1012,12 @@ class MainWindow(QMainWindow):
         return True
 
     def _new_game(self):
+        self._stop_hint_analysis()
+        self._engine_request_id += 1
         if self.engine_worker.isRunning():
             self.engine_worker.terminate()
-            self.engine_worker.wait()
-
-        if self.hint_worker.isRunning():
-            self.hint_worker.terminate()
-            self.hint_worker.wait()
 
         self._engine_thinking = False
-        self._hint_thinking = False
 
         self.board = chess.Board()
         self.start_fen = chess.STARTING_FEN

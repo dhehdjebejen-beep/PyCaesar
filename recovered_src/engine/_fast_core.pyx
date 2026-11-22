@@ -38,10 +38,36 @@ cdef extern from *:
     static inline int c_clz64(unsigned long long x) { return __builtin_clzll(x); }
     static inline int c_popcnt64(unsigned long long x) { return __builtin_popcountll(x); }
     #endif
+
+    #ifdef _WIN32
+    #ifndef WIN32_LEAN_AND_MEAN
+    #define WIN32_LEAN_AND_MEAN
+    #endif
+    #include <windows.h>
+    static inline double c_now_sec(void) {
+        static double inv_freq = 0.0;
+        LARGE_INTEGER counter;
+        if (inv_freq == 0.0) {
+            LARGE_INTEGER freq;
+            QueryPerformanceFrequency(&freq);
+            inv_freq = 1.0 / (double)freq.QuadPart;
+        }
+        QueryPerformanceCounter(&counter);
+        return (double)counter.QuadPart * inv_freq;
+    }
+    #else
+    #include <time.h>
+    static inline double c_now_sec(void) {
+        struct timespec ts;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
+    }
+    #endif
     """
     int c_ctz64(uint64_t x) noexcept nogil
     int c_clz64(uint64_t x) noexcept nogil
     int c_popcnt64(uint64_t x) noexcept nogil
+    double c_now_sec() noexcept nogil
 
 # Константы
 DEF EMPTY = 0
@@ -1295,10 +1321,10 @@ cdef class CythonSearcher:
     def stop(self):
         self.stopped = True
 
-    cdef inline bint _check_time(self):
+    cdef inline bint _check_time(self) noexcept nogil:
         if self.stopped:
             return True
-        if time.time() - self.start_time >= self.time_limit:
+        if c_now_sec() - self.start_time >= self.time_limit:
             self.stopped = True
             return True
         return False
@@ -1386,9 +1412,9 @@ cdef class CythonSearcher:
         scores[best_i] = ts
         return moves[start]
 
-    cdef int _qsearch(self, BoardState* st, int alpha, int beta, int qs_depth, int ply):
+    cdef int _qsearch(self, BoardState* st, int alpha, int beta, int qs_depth, int ply) noexcept nogil:
         self.nodes += 1
-        if (self.nodes & 4095) == 0:
+        if (self.nodes & 2047) == 0:
             if self._check_time():
                 return 0
 
@@ -1468,9 +1494,9 @@ cdef class CythonSearcher:
             if score > alpha: alpha = score
         return alpha
 
-    cdef int _negamax(self, BoardState* st, int depth, int alpha, int beta, int ply, uint16_t prev_move):
+    cdef int _negamax(self, BoardState* st, int depth, int alpha, int beta, int ply, uint16_t prev_move) noexcept nogil:
         self.nodes += 1
-        if (self.nodes & 4095) == 0:
+        if (self.nodes & 2047) == 0:
             if self._check_time():
                 return 0
 
@@ -1703,7 +1729,7 @@ cdef class CythonSearcher:
 
         return best_score
 
-    cdef int _search_root(self, BoardState* st, int depth, int prev_score, int use_asp):
+    cdef int _search_root(self, BoardState* st, int depth, int prev_score, int use_asp) noexcept nogil:
         if not use_asp:
             return self._negamax(st, depth, -INFINITY, INFINITY, 0, 0)
         cdef int delta = 30
@@ -1804,7 +1830,7 @@ cdef class CythonSearcher:
                     self.rep_len += 1
             self._load_board(&st, cb)
 
-        self.start_time = time.time()
+        self.start_time = c_now_sec()
         self.time_limit = time_limit
         self.stopped = False
         self.nodes = 0
@@ -1814,7 +1840,7 @@ cdef class CythonSearcher:
         self._scale_history()
         self._scale_cap_history()
 
-        cdef int depth, k, score, best_score = 0, depth_reached = 0, prev_score = 0, stable = 0
+        cdef int depth, k, score, best_score = 0, depth_reached = 0, prev_score = 0, stable = 0, use_asp
         cdef uint16_t best_move = 0, prev_best = 0, cand
         cdef list best_lines = []
         cdef list lines
@@ -1827,7 +1853,9 @@ cdef class CythonSearcher:
 
             for k in range(multipv):
                 self.best_move_root = 0
-                score = self._search_root(&st, depth, prev_score, 1 if (depth > 4 and k == 0 and multipv == 1) else 0)
+                use_asp = 1 if (depth > 4 and k == 0 and multipv == 1) else 0
+                with nogil:
+                    score = self._search_root(&st, depth, prev_score, use_asp)
                 if self.stopped:
                     break
                 cand = self.best_move_root
@@ -1855,14 +1883,14 @@ cdef class CythonSearcher:
 
             if on_iteration is not None:
                 try:
-                    on_iteration(depth, best_score, best_lines, int(self.nodes), time.time() - self.start_time)
+                    on_iteration(depth, best_score, best_lines, int(self.nodes), c_now_sec() - self.start_time)
                 except Exception:
                     pass
 
             if abs(best_score) >= MATE_SCORE:
                 break
 
-            elapsed = time.time() - self.start_time
+            elapsed = c_now_sec() - self.start_time
             remaining = time_limit - elapsed
             if remaining < time_limit * 0.02:
                 break

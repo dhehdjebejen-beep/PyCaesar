@@ -111,15 +111,16 @@ class AnalysisWorker(QThread):
 
     _moves: list
 
-    def __init__(self, moves: list, parent=None) -> None:
+    def __init__(self, moves: list, parent=None, start_fen: str = chess.STARTING_FEN) -> None:
         super().__init__(parent)
         self._moves = moves
+        self._start_fen = start_fen
 
     def run(self) -> None:
         total = len(self._moves)
         results = [None] * total
         
-        board = chess.Board()
+        board = chess.Board(self._start_fen)
         tasks = []
         for i, move in enumerate(self._moves):
             fen = board.fen()
@@ -176,11 +177,12 @@ class AnalysisDialog(QDialog):
     black_stats_box: QGroupBox
     table: QTableWidget
 
-    def __init__(self, move_history: list, parent=None) -> None:
+    def __init__(self, move_history: list, parent=None, start_fen: str = chess.STARTING_FEN) -> None:
         super().__init__(parent)
         self.setWindowTitle("📊 Анализ партии")
         self.setMinimumSize(700, 550)
         self._moves = move_history
+        self._start_fen = start_fen
         self._analysis_data = []
         self._worker = None
         self._init_ui()
@@ -309,7 +311,7 @@ class AnalysisDialog(QDialog):
             self._start_analysis()
 
     def _start_analysis(self) -> None:
-        self._worker = AnalysisWorker(self._moves, self)
+        self._worker = AnalysisWorker(self._moves, self, start_fen=self._start_fen)
         self._worker.progress_updated.connect(self._on_progress)
         self._worker.analysis_done.connect(self._on_analysis_done)
         self._worker.start()
