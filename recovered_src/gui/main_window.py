@@ -545,6 +545,8 @@ class MainWindow(QMainWindow):
             self._apply_engine_settings()
             if hints_box is not None and hints_box.currentIndex() != self.analysis_mode:
                 self._set_analysis_mode(hints_box.currentIndex())
+            elif self.game_mode == MODE_HVH and self._engine_output_allowed():
+                self._start_hint_analysis()
             self._update_status(
                 f'⚙ {self.engine_time_limit:.1f} с/ход  •  уровень {self.engine_level}'
             )
@@ -561,8 +563,9 @@ class MainWindow(QMainWindow):
     def _apply_engine_settings(self):
         """Передать текущие настройки обоим экземплярам движка."""
         self.engine.set_strength(self.engine_level)
-        # Движок подсказок в ЧвЧ всегда работает на полной силе и отдаёт ровно 2 линии
-        # (лучший ход + альтернатива), чтобы при понижении уровня бота доску не заваливало 4-6 стрелками.
+        # Движок подсказок в ЧвЧ также обязан учитывать выбранный уровень силы;
+        # на доске всё равно рисуются максимум 2 стрелки (срез [:2] в _on_hint_*).
+        self._hint_engine.set_strength(self.engine_level)
 
     def _go_back_to_menu(self):
         if self.move_history:
@@ -851,6 +854,10 @@ class MainWindow(QMainWindow):
     def _on_hint_progress(self, multi_pv: list, score: int, depth: int, nodes: int, request_id: int):
         """В режиме анализа наоборот: показываем всё, включая стрелки, вживую."""
         if request_id != self._hint_request_id or not self._hint_thinking:
+            return
+        # На слабых уровнях (1–5) итоговый ход выбирается с шумом в конце поиска;
+        # не рисуем промежуточный «сильный» ход без шума, чтобы не вводить в заблуждение.
+        if self._hint_engine.strength.noise_cp > 0:
             return
         if not multi_pv:
             return

@@ -83,9 +83,9 @@ Additional match vs **Stockfish 19 (2400 Elo, 2.0 s/move, 6 games)**: **`+4 =2 -
 ## Highlights
 
 - **Search:** Fail-soft Negamax, PVS, Aspiration Windows, flat C TT, Null-Move Pruning, RFP, Razoring, Futility Pruning (check-safe), LMP, IIR, LMR, Quiescence + SEE, Killers, Counter-Move, History / Capture History, true MultiPV, Polyglot book (`book.bin`), bundled 3–4 piece Syzygy tablebases.
-- **Desktop GUI ([`recovered_src/gui/`](recovered_src/gui/)):** PyQt6 interface with Human vs Bot and Human vs Human modes (optional full-strength 2-arrow hints or completely disabled engine), live evaluation/depth updates, post-game analysis, FEN import/export, undo/redo.
+- **Desktop GUI ([`recovered_src/gui/`](recovered_src/gui/)):** PyQt6 interface with Human vs Bot and Human vs Human modes (optional 2-arrow hints respecting the selected strength level 1–10, or completely disabled engine), live evaluation/depth updates, post-game analysis, FEN import/export, undo/redo.
 - **UCI ([`recovered_src/uci.py`](recovered_src/uci.py)):** Supports `Hash`, `Skill Level`, `UCI_LimitStrength`, `UCI_Elo` (400–2637), `OwnBook`, and `SyzygyPath`.
-- **Audit & Tests:** Full historical audit in [`AUDIT.md`](AUDIT.md) and 22 automated tests in [`tests/`](tests/) (Perft, evaluation antisymmetry, SEE, MultiPV, Syzygy, TT mate encoding, and UCI end-to-end).
+- **Audit & Tests:** Full historical audit in [`AUDIT.md`](AUDIT.md) and 23 automated tests in [`tests/`](tests/) (Perft, evaluation antisymmetry, SEE, MultiPV, Syzygy, TT mate encoding, and UCI end-to-end).
 
 ---
 
@@ -96,7 +96,7 @@ pip install -r requirements.txt
 python setup_cython.py                      # Compile the Cython core (requires a C compiler)
 python recovered_src/main.py                # Launch PyQt6 GUI
 python recovered_src/uci.py                 # Run UCI engine
-python -m unittest discover -s tests -v     # Run 22 unit tests
+python -m unittest discover -s tests -v     # Run 23 unit tests
 python tools/download_syzygy.py --pieces 5  # Optional: download 5-piece Syzygy (~938 MB)
 ```
 

@@ -261,6 +261,15 @@ class TestHumanStyle(unittest.TestCase):
         self.assertEqual(len(lines_long), 2)
         self.assertNotEqual(lines_long[0][0], lines_long[1][0])
 
+    def test_low_levels_skip_book_and_cap_depth(self):
+        """Регрессия: слабые уровни (1–5) не играют гроссмейстерскую книгу и держат лимит глубины."""
+        eng = ChessEngine(level=2)
+        board = chess.Board()
+        lines, _, depth = eng.get_best_move(board, time_limit=1.0, use_book=True)
+        self.assertGreaterEqual(len(lines), 1)
+        self.assertGreater(depth, 0)
+        self.assertLessEqual(depth, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

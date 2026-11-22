@@ -83,9 +83,9 @@
 ## Что внутри
 
 - **Поиск:** Fail-soft Negamax, PVS, Aspiration Windows, плоская C-TT, Null-Move Pruning, RFP, Razoring, Futility Pruning (с защитой шахов), LMP, IIR, LMR, Quiescence + SEE, Killers, Counter-Move, History / Capture History, настоящий MultiPV, Polyglot (`book.bin`), Syzygy (3–4 фигуры в комплекте).
-- **GUI ([`recovered_src/gui/`](recovered_src/gui/)):** PyQt6, режимы игры против бота и «человек против человека» (в ЧвЧ движок можно полностью выключить или включить подсказки на полной силе — 2 стрелки), живое обновление оценки, анализ партии, FEN, undo/redo.
+- **GUI ([`recovered_src/gui/`](recovered_src/gui/)):** PyQt6, режимы игры против бота и «человек против человека» (в ЧвЧ движок можно полностью выключить или включить подсказки с учётом выбранного уровня силы 1–10 — до 2 стрелок), живое обновление оценки, анализ партии, FEN, undo/redo.
 - **UCI ([`recovered_src/uci.py`](recovered_src/uci.py)):** `Hash`, `Skill Level`, `UCI_LimitStrength`, `UCI_Elo` (400–2637), `OwnBook`, `SyzygyPath`.
-- **Технический аудит и тесты:** исторический аудит в [`AUDIT.md`](AUDIT.md) и 22 автотеста в [`tests/`](tests/) (включая Perft, антисимметрию оценки, SEE, MultiPV, Syzygy, матовые оценки в TT и UCI).
+- **Технический аудит и тесты:** исторический аудит в [`AUDIT.md`](AUDIT.md) и 23 автотеста в [`tests/`](tests/) (включая Perft, антисимметрию оценки, SEE, MultiPV, Syzygy, матовые оценки в TT и UCI).
 
 ---
 
@@ -96,7 +96,7 @@ pip install -r requirements.txt
 python setup_cython.py                      # Сборка Cython-ядра (требуется C-компилятор)
 python recovered_src/main.py                # Запуск GUI
 python recovered_src/uci.py                 # Запуск UCI
-python -m unittest discover -s tests -v     # Прогон 22 автотестов
+python -m unittest discover -s tests -v     # Прогон 23 автотестов
 python tools/download_syzygy.py --pieces 5  # Докачать 5-фигурные базы Syzygy (~938 МБ)
 ```
 

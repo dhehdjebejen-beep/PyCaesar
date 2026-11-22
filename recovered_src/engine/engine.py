@@ -63,7 +63,9 @@ class ChessEngine:
         multipv: int = 1,
         max_depth: int = 64,
     ) -> tuple[list, int, int]:
-        if use_book:
+        # На слабых уровнях (1–5, noise_cp > 0) не используем гроссмейстерскую
+        # дебютную книгу, чтобы бот играл на свой заявленный рейтинг с 1-го хода.
+        if use_book and self.strength.noise_cp == 0:
             book_move = get_book_move(board)
             if book_move is not None and book_move in board.legal_moves:
                 return [(book_move, 0)], 0, 0
