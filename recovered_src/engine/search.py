@@ -752,7 +752,8 @@ class SearchEngine:
             else:
                 flag = TT_EXACT
 
-            self.tt.store(zhash, depth, best_score, flag, best_move, ply)
+            if not (ply == 0 and self.excluded_root_moves):
+                self.tt.store(zhash, depth, best_score, flag, best_move, ply)
             return best_score
         finally:
             if prev_rep == 0:
@@ -938,6 +939,9 @@ class SearchEngine:
 
             if self.stopped or not lines:
                 break
+
+            if multipv > 1 and len(lines) > 1:
+                lines.sort(key=lambda item: item[1], reverse=True)
 
             prev_best = best_move_int
             best_lines_int = lines

@@ -178,7 +178,7 @@ cdef struct UndoEntry:
     uint8_t cap
     uint8_t castling
     int8_t ep
-    uint8_t halfmove
+    uint16_t halfmove
     int mg
     int eg
     int phase
@@ -750,11 +750,11 @@ cdef int gen_moves(BoardState* st, uint16_t* out, int caps_only) noexcept nogil:
             t = c_ctz64(att); att &= att - 1
             out[n] = ks | (t << 6) | ((FLAG_CAPTURE if ((1ULL << t) & opp) else FLAG_QUIET) << 12); n += 1
 
-        if not caps_only and (st.castling & (CASTLE_WK | CASTLE_WQ)):
-            if (st.castling & CASTLE_WK) and not (occ & 0x60ULL):
+        if not caps_only and (st.castling & (CASTLE_WK | CASTLE_WQ)) and st.wk_sq == 4:
+            if (st.castling & CASTLE_WK) and st.sq[7] == WR and not (occ & 0x60ULL):
                 if not is_attacked(st, 4, BLACK) and not is_attacked(st, 5, BLACK) and not is_attacked(st, 6, BLACK):
                     out[n] = 4 | (6 << 6) | (FLAG_CASTLE_K << 12); n += 1
-            if (st.castling & CASTLE_WQ) and not (occ & 0x0EULL):
+            if (st.castling & CASTLE_WQ) and st.sq[0] == WR and not (occ & 0x0EULL):
                 if not is_attacked(st, 4, BLACK) and not is_attacked(st, 3, BLACK) and not is_attacked(st, 2, BLACK):
                     out[n] = 4 | (2 << 6) | (FLAG_CASTLE_Q << 12); n += 1
     else:
@@ -848,11 +848,11 @@ cdef int gen_moves(BoardState* st, uint16_t* out, int caps_only) noexcept nogil:
             t = c_ctz64(att); att &= att - 1
             out[n] = ks | (t << 6) | ((FLAG_CAPTURE if ((1ULL << t) & opp) else FLAG_QUIET) << 12); n += 1
 
-        if not caps_only and (st.castling & (CASTLE_BK | CASTLE_BQ)):
-            if (st.castling & CASTLE_BK) and not (occ & 0x6000000000000000ULL):
+        if not caps_only and (st.castling & (CASTLE_BK | CASTLE_BQ)) and st.bk_sq == 60:
+            if (st.castling & CASTLE_BK) and st.sq[63] == BR and not (occ & 0x6000000000000000ULL):
                 if not is_attacked(st, 60, WHITE) and not is_attacked(st, 61, WHITE) and not is_attacked(st, 62, WHITE):
                     out[n] = 60 | (62 << 6) | (FLAG_CASTLE_K << 12); n += 1
-            if (st.castling & CASTLE_BQ) and not (occ & 0x0E00000000000000ULL):
+            if (st.castling & CASTLE_BQ) and st.sq[56] == BR and not (occ & 0x0E00000000000000ULL):
                 if not is_attacked(st, 60, WHITE) and not is_attacked(st, 59, WHITE) and not is_attacked(st, 58, WHITE):
                     out[n] = 60 | (58 << 6) | (FLAG_CASTLE_Q << 12); n += 1
 
@@ -1258,7 +1258,7 @@ cdef class CythonSearcher:
     cdef uint64_t tt_mask
     cdef uint64_t tt_size
     cdef PawnEntry* ptable
-    cdef uint64_t rep_history[1024]
+    cdef uint64_t rep_history[2048]
     cdef int rep_len
     cdef uint16_t killers[MAX_PLY][2]
     cdef uint16_t counter_moves[64][64]
@@ -1548,8 +1548,11 @@ cdef class CythonSearcher:
             if depth == 1 and alpha < TB_WIN - 1000 and alpha > -TB_WIN + 1000 and static_eval + 300 <= alpha:
                 return self._qsearch(st, alpha, beta, 0, ply)
 
-        self.rep_history[self.rep_len] = zhash
-        self.rep_len += 1
+        cdef int pushed_rep = 0
+        if self.rep_len < 2048:
+            self.rep_history[self.rep_len] = zhash
+            self.rep_len += 1
+            pushed_rep = 1
 
         # Null Move Pruning
         cdef int R, null_score
@@ -1564,10 +1567,10 @@ cdef class CythonSearcher:
                 null_score = -self._negamax(st, depth - 1 - R, -beta, -beta + 1, ply + 1, 0)
                 unmake_null(st)
                 if self.stopped:
-                    self.rep_len -= 1
+                    self.rep_len -= pushed_rep
                     return 0
                 if null_score >= beta:
-                    self.rep_len -= 1
+                    self.rep_len -= pushed_rep
                     return beta
 
         # Futility & LMP
@@ -1597,7 +1600,7 @@ cdef class CythonSearcher:
         cdef uint16_t cm = self.counter_moves[prev_move & 63][(prev_move >> 6) & 63] if prev_move else 0
 
         cdef int orig_alpha = alpha
-        cdef int best_score = -INFINITY
+        cdef int best_score = -(INFINITY + 1)
         cdef uint16_t best_move = 0
         cdef int legal_cnt = 0
         cdef int quiet_cnt = 0
@@ -1668,7 +1671,7 @@ cdef class CythonSearcher:
 
             unmake_move(st)
             if self.stopped:
-                self.rep_len -= 1
+                self.rep_len -= pushed_rep
                 return 0
 
             if score > best_score:
@@ -1700,7 +1703,7 @@ cdef class CythonSearcher:
                         self._scale_cap_history()
                 break
 
-        self.rep_len -= 1
+        self.rep_len -= pushed_rep
 
         if legal_cnt == 0:
             if pruned:
@@ -1719,13 +1722,14 @@ cdef class CythonSearcher:
         else:
             flag = TT_EXACT
 
-        # Запись в TT (replace if deeper or empty or different key)
-        if tte.key != zhash or depth >= tte.depth or flag == TT_EXACT:
-            tte.key = zhash
-            tte.score = <int32_t>score_to_tt(best_score, ply)
-            tte.move = best_move
-            tte.depth = <int8_t>depth
-            tte.flag = flag
+        # Запись в TT (не перезаписываем корень при MultiPV-исключении ходов!)
+        if not (ply == 0 and self.excluded_cnt > 0):
+            if tte.key != zhash or depth >= tte.depth or flag == TT_EXACT:
+                tte.key = zhash
+                tte.score = <int32_t>score_to_tt(best_score, ply)
+                tte.move = best_move
+                tte.depth = <int8_t>depth
+                tte.flag = flag
 
         return best_score
 
@@ -1774,12 +1778,17 @@ cdef class CythonSearcher:
                 st.zhash ^= Z_PIECE[code][s]
         st.occ = st.occ_w | st.occ_b
         st.turn = WHITE if cb.turn == chess.WHITE else BLACK
-        if cb.castling_rights & chess.BB_H1: c |= CASTLE_WK
-        if cb.castling_rights & chess.BB_A1: c |= CASTLE_WQ
-        if cb.castling_rights & chess.BB_H8: c |= CASTLE_BK
-        if cb.castling_rights & chess.BB_A8: c |= CASTLE_BQ
+        cr = cb.clean_castling_rights()
+        if cr & chess.BB_H1: c |= CASTLE_WK
+        if cr & chess.BB_A1: c |= CASTLE_WQ
+        if cr & chess.BB_H8: c |= CASTLE_BK
+        if cr & chess.BB_A8: c |= CASTLE_BQ
         st.castling = c
-        st.ep = cb.ep_square if cb.ep_square is not None else -1
+        ep_sq = cb.ep_square
+        if ep_sq is not None and cb.has_pseudo_legal_en_passant():
+            st.ep = ep_sq
+        else:
+            st.ep = -1
         st.halfmove = cb.halfmove_clock
         st.zhash ^= Z_CASTLE[c] ^ Z_EP[st.ep if st.ep >= 0 else 64]
         if st.turn == BLACK:
@@ -1815,19 +1824,23 @@ cdef class CythonSearcher:
         cdef BoardState st
         self._load_board(&st, cb)
 
-        # История повторений
+        # История повторений (храним максимум последние 1024 полухода, чтобы
+        # всегда оставался запас >= 1024 ячеек под дерево поиска MAX_PLY=128)
         self.rep_len = 0
         if cb.move_stack:
             tmp = cb.root()
+            hist_hashes = []
             self._load_board(&st, tmp)
-            self.rep_history[self.rep_len] = st.zhash
-            self.rep_len += 1
+            hist_hashes.append(st.zhash)
             for cm in cb.move_stack[:len(cb.move_stack) - 1]:
                 tmp.push(cm)
                 self._load_board(&st, tmp)
-                if self.rep_len < 1020:
-                    self.rep_history[self.rep_len] = st.zhash
-                    self.rep_len += 1
+                hist_hashes.append(st.zhash)
+            if len(hist_hashes) > 1024:
+                hist_hashes = hist_hashes[len(hist_hashes) - 1024:]
+            for h_val in hist_hashes:
+                self.rep_history[self.rep_len] = h_val
+                self.rep_len += 1
             self._load_board(&st, cb)
 
         self.start_time = c_now_sec()
@@ -1840,7 +1853,7 @@ cdef class CythonSearcher:
         self._scale_history()
         self._scale_cap_history()
 
-        cdef int depth, k, score, best_score = 0, depth_reached = 0, prev_score = 0, stable = 0, use_asp
+        cdef int depth, k, j_ex, score, best_score = 0, depth_reached = 0, prev_score = 0, stable = 0, use_asp
         cdef uint16_t best_move = 0, prev_best = 0, cand
         cdef list best_lines = []
         cdef list lines
@@ -1863,6 +1876,11 @@ cdef class CythonSearcher:
                     tte = &self.tt[st.zhash & self.tt_mask]
                     if tte.key == st.zhash and tte.move != 0:
                         cand = tte.move
+                if cand != 0 and self.excluded_cnt > 0:
+                    for j_ex in range(self.excluded_cnt):
+                        if self.excluded_root[j_ex] == cand:
+                            cand = 0
+                            break
                 if cand == 0:
                     break
                 lines.append((int(cand), int(score)))
@@ -1890,7 +1908,7 @@ cdef class CythonSearcher:
                 except Exception:
                     pass
 
-            if abs(best_score) >= MATE_SCORE:
+            if abs(best_score) >= MATE_SCORE and (multipv == 1 or depth >= 8):
                 break
 
             elapsed = c_now_sec() - self.start_time

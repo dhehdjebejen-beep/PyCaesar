@@ -189,16 +189,18 @@ class FastBoard:
         fb.occ = fb.occ_w | fb.occ_b
         fb.turn = WHITE if cb.turn == chess.WHITE else BLACK
         c = 0
-        if cb.castling_rights & chess.BB_H1:
+        cr = cb.clean_castling_rights()
+        if cr & chess.BB_H1:
             c |= CASTLE_WK
-        if cb.castling_rights & chess.BB_A1:
+        if cr & chess.BB_A1:
             c |= CASTLE_WQ
-        if cb.castling_rights & chess.BB_H8:
+        if cr & chess.BB_H8:
             c |= CASTLE_BK
-        if cb.castling_rights & chess.BB_A8:
+        if cr & chess.BB_A8:
             c |= CASTLE_BQ
         fb.castling = c
-        fb.ep = cb.ep_square if cb.ep_square is not None else -1
+        ep_sq = cb.ep_square
+        fb.ep = ep_sq if (ep_sq is not None and cb.has_pseudo_legal_en_passant()) else -1
         fb.halfmove = cb.halfmove_clock
         fb.mg = mg
         fb.eg = eg

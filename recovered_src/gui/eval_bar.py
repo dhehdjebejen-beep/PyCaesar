@@ -23,7 +23,7 @@ class EvalBar(QWidget):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setFixedWidth(36)
+        self.setFixedWidth(48)
         self.setMinimumHeight(200)
         self._score_cp = 0
         self._display_text = "0.00"
@@ -71,10 +71,9 @@ class EvalBar(QWidget):
         painter.setPen(QColor(100, 100, 100))
         painter.drawLine(bar_x, white_y, bar_x + bar_w, white_y)
         
-        font = QFont("Segoe UI", 9, QFont.Weight.Bold)
-        painter.setFont(font)
-        
         text = self._display_text
+        font = QFont("Segoe UI", 8 if len(text) >= 6 else 9, QFont.Weight.Bold)
+        painter.setFont(font)
         text_y = h // 2
         
         if self._win_pct > 0.55:

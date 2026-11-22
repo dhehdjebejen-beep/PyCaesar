@@ -241,6 +241,26 @@ class TestHumanStyle(unittest.TestCase):
         self.assertLess(lines[0][1], 0)
         self.assertLessEqual(lines[1][1], -MATE_SCORE)
 
+    def test_sloppy_castling_fen_and_long_history(self):
+        """Регрессия: некорректные права рокировки в FEN и длинная история (>1024) не ломают поиск."""
+        se = SearchEngine()
+        sloppy = chess.Board("2bqkbn1/2pppp2/np2N3/r3P1p1/p2N2B1/5Q2/PPPPKPP1/RNB2r2 w KQkq - 0 1")
+        lines, _, _ = se.search(sloppy, time_limit=0.3, use_book=False, multipv=2, max_depth=8)
+        legal = set(sloppy.legal_moves)
+        self.assertGreaterEqual(len(lines), 1)
+        for m, _ in lines:
+            self.assertIn(m, legal)
+
+        b_long = chess.Board()
+        for _ in range(300):
+            b_long.push(chess.Move.from_uci("g1f3"))
+            b_long.push(chess.Move.from_uci("g8f6"))
+            b_long.push(chess.Move.from_uci("f3g1"))
+            b_long.push(chess.Move.from_uci("f6g8"))
+        lines_long, _, _ = se.search(b_long, time_limit=0.2, use_book=False, multipv=2, max_depth=6)
+        self.assertEqual(len(lines_long), 2)
+        self.assertNotEqual(lines_long[0][0], lines_long[1][0])
+
 
 if __name__ == "__main__":
     unittest.main()
