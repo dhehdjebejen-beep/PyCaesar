@@ -9,7 +9,7 @@ _fast_core.pyx — Скомпилированное Cython-ядро PyCaesar (Py
   • Полный поиск: PVS, NMP, RFP, Futility (с защитой шахов), LMP, IIR, LMR, SEE, Killers, Counter-Move, History
 """
 
-from libc.stdint cimport uint64_t, uint32_t, uint16_t, uint8_t, int16_t, int8_t
+from libc.stdint cimport uint64_t, uint32_t, uint16_t, uint8_t, int32_t, int16_t, int8_t
 from libc.stdlib cimport malloc, free
 from libc.string cimport memset, memcpy
 import time
@@ -205,7 +205,7 @@ cdef struct BoardState:
 
 cdef struct TTEntry:
     uint64_t key
-    int16_t score
+    int32_t score
     uint16_t move
     int8_t depth
     uint8_t flag
@@ -1722,7 +1722,7 @@ cdef class CythonSearcher:
         # Запись в TT (replace if deeper or empty or different key)
         if tte.key != zhash or depth >= tte.depth or flag == TT_EXACT:
             tte.key = zhash
-            tte.score = <int16_t>score_to_tt(best_score, ply)
+            tte.score = <int32_t>score_to_tt(best_score, ply)
             tte.move = best_move
             tte.depth = <int8_t>depth
             tte.flag = flag
@@ -1872,6 +1872,9 @@ cdef class CythonSearcher:
 
             if self.stopped or not lines:
                 break
+
+            if multipv > 1 and len(lines) > 1:
+                lines.sort(key=lambda item: item[1], reverse=True)
 
             prev_best = best_move
             best_lines = lines

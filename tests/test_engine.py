@@ -231,6 +231,16 @@ class TestHumanStyle(unittest.TestCase):
         b_r3 = chess.Board("4k3/pp4pp/8/8/8/3R4/PP4PP/4K3 w - - 0 25")
         self.assertGreater(evaluate(b_r7), evaluate(b_r3))
 
+    def test_tt_mate_no_int16_overflow(self):
+        """Регрессия: матовые оценки ±99xxx в TT не должны переполнять int16_t в ±31078."""
+        se = SearchEngine()
+        board = chess.Board("rnb1kbnr/pp1ppppp/2p5/8/2P1P3/3P1K2/5qPP/5BNR w - - 0 1")
+        lines, score, depth = se.search(board, time_limit=1.0, use_book=False, multipv=2, max_depth=10)
+        self.assertEqual(len(lines), 2)
+        self.assertEqual(lines[0][0].uci(), "f3f2")
+        self.assertLess(lines[0][1], 0)
+        self.assertLessEqual(lines[1][1], -MATE_SCORE)
+
 
 if __name__ == "__main__":
     unittest.main()
