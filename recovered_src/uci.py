@@ -1,4 +1,7 @@
 """
+Required Notice: Copyright (c) 2026 dhehdjebejen-beep (https://github.com/dhehdjebejen-beep)
+License: PolyForm Noncommercial License 1.0.0 (https://polyformproject.org/licenses/noncommercial/1.0.0)
+
 uci.py — UCI-интерфейс PyCaesar
 
 Запуск из исходников:

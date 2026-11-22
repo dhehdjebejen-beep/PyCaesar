@@ -4,7 +4,7 @@ a = Analysis(
     ['recovered_src\\main.py'],
     pathex=['recovered_src'],
     binaries=[],
-    datas=[('book.bin', '.'), ('icon.svg', '.'), ('syzygy', 'syzygy')],
+    datas=[('book.bin', '.'), ('icon.svg', '.'), ('LICENSE', '.'), ('syzygy', 'syzygy')],
     hiddenimports=['chess', 'chess.polyglot', 'chess.syzygy', 'engine.tablebase', 'engine.fast_board', 'engine.fast_eval', 'engine._fast_core'],
     hookspath=[],
     hooksconfig={},

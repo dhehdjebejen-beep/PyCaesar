@@ -7,7 +7,9 @@ start_dialog.py – Диалог выбора режима игры
   • Человек vs Человек (без участия движка)
 """
 
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout
+import os
+import sys
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QPlainTextEdit
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 from gui.utils import get_app_icon
@@ -18,6 +20,25 @@ MODE_HVH = "hvh"
 
 BOT_VERSION = "2.0.0 (Final)"
 UI_VERSION = "2.0.0"
+LICENSE_NAME = "PolyForm Noncommercial 1.0.0"
+REQUIRED_NOTICE = "Required Notice: Copyright (c) 2026 dhehdjebejen-beep (https://github.com/dhehdjebejen-beep)"
+
+
+def _load_license_text() -> str:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        path = os.path.join(sys._MEIPASS, "LICENSE")
+    else:
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        path = os.path.join(root, "LICENSE")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    except OSError:
+        return (
+            f"{REQUIRED_NOTICE}\n\n"
+            f"{LICENSE_NAME}\n"
+            "https://polyformproject.org/licenses/noncommercial/1.0.0\n"
+        )
 
 class StartDialog(QDialog):
     """Диалог выбора режима игры."""
@@ -172,7 +193,10 @@ class StartDialog(QDialog):
             f"Дебюты:  Polyglot (book.bin)\n"
             f"Эндшпили:  {tb_label}\n"
             f"Сила игры:  10 уровней (400–2637 Elo, Stockfish 19)\n"
-            f"Протоколы:  PyQt6 GUI + UCI"
+            f"Протоколы:  PyQt6 GUI + UCI\n"
+            f"\n"
+            f"Лицензия:  {LICENSE_NAME}\n"
+            f"Copyright (c) 2026 dhehdjebejen-beep"
         )
         details_lbl = QLabel(details_text)
         details_lbl.setFont(QFont("Segoe UI", 10))
@@ -186,6 +210,27 @@ class StartDialog(QDialog):
         lay.addWidget(details_lbl)
 
         lay.addSpacing(4)
+
+        btns_row = QHBoxLayout()
+        btns_row.setSpacing(10)
+
+        lic_btn = QPushButton("📄 Лицензия")
+        lic_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #d5cfc4;
+                color: #222;
+                border: 1px solid #bbb4a8;
+                border-radius: 6px;
+                padding: 8px 18px;
+                font-size: 12px;
+                font-weight: 600;
+                font-family: 'Segoe UI';
+            }
+            QPushButton:hover { background-color: #c5bfb4; }
+        """)
+        lic_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        lic_btn.clicked.connect(lambda: self._show_license(info))
+        btns_row.addWidget(lic_btn)
 
         ok_btn = QPushButton("Понятно")
         ok_btn.setStyleSheet("""
@@ -203,9 +248,53 @@ class StartDialog(QDialog):
         """)
         ok_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         ok_btn.clicked.connect(info.accept)
-        lay.addWidget(ok_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        btns_row.addWidget(ok_btn)
+        lay.addLayout(btns_row)
 
         info.exec()
+
+    def _show_license(self, parent=None) -> None:
+        dlg = QDialog(parent or self)
+        dlg.setWindowTitle(f"Лицензия — {LICENSE_NAME}")
+        dlg.setMinimumSize(560, 440)
+        dlg.setStyleSheet("QDialog { background-color: #f5f0e8; }")
+        v = QVBoxLayout(dlg)
+        v.setContentsMargins(16, 16, 16, 14)
+        v.setSpacing(10)
+
+        txt = QPlainTextEdit()
+        txt.setReadOnly(True)
+        txt.setPlainText(_load_license_text())
+        txt.setFont(QFont("Consolas", 9))
+        txt.setStyleSheet("""
+            QPlainTextEdit {
+                background-color: #ffffff;
+                color: #222;
+                border: 1px solid #ccc;
+                border-radius: 6px;
+                padding: 8px;
+            }
+        """)
+        v.addWidget(txt)
+
+        close_btn = QPushButton("Закрыть")
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2d5016;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 28px;
+                font-size: 12px;
+                font-weight: 600;
+                font-family: 'Segoe UI';
+            }
+            QPushButton:hover { background-color: #3a6b1e; }
+        """)
+        close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        close_btn.clicked.connect(dlg.accept)
+        v.addWidget(close_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        dlg.exec()
 
     def _select(self, mode: str) -> None:
         self.selected_mode = mode

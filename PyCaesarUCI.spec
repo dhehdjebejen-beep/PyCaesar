@@ -5,7 +5,7 @@ a = Analysis(
     ['recovered_src\\uci.py'],
     pathex=['recovered_src'],
     binaries=[],
-    datas=[('book.bin', '.'), ('syzygy', 'syzygy')],
+    datas=[('book.bin', '.'), ('LICENSE', '.'), ('syzygy', 'syzygy')],
     hiddenimports=[
         'chess', 'chess.polyglot', 'chess.syzygy',
         'engine', 'engine.search', 'engine.evaluation',

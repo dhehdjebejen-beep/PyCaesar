@@ -1,5 +1,7 @@
 # PyCaesar
 
+![Лицензия: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-7C5CFF)
+
 > **Язык:** [English](README.md) | **Русский**
 
 > **Статус проекта: завершён (февраль — ноябрь 2026).**  
@@ -99,3 +101,13 @@ python tools/download_syzygy.py --pieces 5  # Докачать 5-фигурны�
 ```
 
 Для автоматической сборки `PyCaesar.exe` и `PyCaesarUCI.exe` на Windows предусмотрен скрипт [`build_windows.bat`](build_windows.bat) (результат складывается в `dist\`).
+
+---
+
+## Лицензия
+
+[PolyForm Noncommercial 1.0.0](LICENSE). Движок и интерфейс можно использовать, форкать, изменять и распространять в любых некоммерческих целях, если с каждой копией идут текст лицензии (или ссылка на неё) и строка `Required Notice`. Коммерческое использование **запрещено**: продажа программы и её форков, а также встраивание в коммерческие продукты или сервисы. Для коммерческих условий напишите автору.
+
+## Автор
+
+[@dhehdjebejen-beep](https://github.com/dhehdjebejen-beep)
