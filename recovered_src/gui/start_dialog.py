@@ -20,8 +20,8 @@ MODE_HVH = "hvh"
 
 BOT_VERSION = "2.0.0 (Final)"
 UI_VERSION = "2.0.0"
-LICENSE_NAME = "PolyForm Noncommercial 1.0.0"
-REQUIRED_NOTICE = "Required Notice: Copyright (c) 2026 dhehdjebejen-beep (https://github.com/dhehdjebejen-beep)"
+LICENSE_NAME = "GNU GPL v3.0 (GPL-3.0-only)"
+COPYRIGHT_NOTICE = "Copyright (c) 2026 dhehdjebejen-beep (https://github.com/dhehdjebejen-beep)"
 
 
 def _load_license_text() -> str:
@@ -32,12 +32,12 @@ def _load_license_text() -> str:
         path = os.path.join(root, "LICENSE")
     try:
         with open(path, encoding="utf-8") as f:
-            return f.read()
+            return f"{COPYRIGHT_NOTICE}\n\n" + f.read()
     except OSError:
         return (
-            f"{REQUIRED_NOTICE}\n\n"
+            f"{COPYRIGHT_NOTICE}\n\n"
             f"{LICENSE_NAME}\n"
-            "https://polyformproject.org/licenses/noncommercial/1.0.0\n"
+            "https://www.gnu.org/licenses/gpl-3.0.html\n"
         )
 
 class StartDialog(QDialog):

@@ -1,6 +1,6 @@
 """
-Required Notice: Copyright (c) 2026 dhehdjebejen-beep (https://github.com/dhehdjebejen-beep)
-License: PolyForm Noncommercial License 1.0.0 (https://polyformproject.org/licenses/noncommercial/1.0.0)
+Copyright (c) 2026 dhehdjebejen-beep (https://github.com/dhehdjebejen-beep)
+SPDX-License-Identifier: GPL-3.0-only
 
 uci.py — UCI-интерфейс PyCaesar
 

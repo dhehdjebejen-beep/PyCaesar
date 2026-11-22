@@ -1,6 +1,6 @@
 # PyCaesar
 
-![Лицензия: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-7C5CFF)
+![Лицензия: GPL v3](https://img.shields.io/badge/license-GPL%20v3-blue.svg)
 
 > **Язык:** [English](README.md) | **Русский**
 
@@ -106,7 +106,8 @@ python tools/download_syzygy.py --pieces 5  # Докачать 5-фигурны�
 
 ## Лицензия
 
-[PolyForm Noncommercial 1.0.0](LICENSE). Движок и интерфейс можно использовать, форкать, изменять и распространять в любых некоммерческих целях, если с каждой копией идут текст лицензии (или ссылка на неё) и строка `Required Notice`. Коммерческое использование **запрещено**: продажа программы и её форков, а также встраивание в коммерческие продукты или сервисы. Для коммерческих условий напишите автору.
+Copyright (c) 2026 [@dhehdjebejen-beep](https://github.com/dhehdjebejen-beep).  
+Проект распространяется под лицензией **[GNU General Public License v3.0](LICENSE)** (`GPL-3.0-only`) — полностью совместимой с `PyQt6` и `python-chess`. Любые форки, модификации и дистрибутивы обязаны сохранять указание авторства и открывать исходный код под той же лицензией GPL v3.0.
 
 ## Автор
 

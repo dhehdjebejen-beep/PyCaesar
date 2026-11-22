@@ -1,6 +1,6 @@
 # PyCaesar
 
-![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-7C5CFF)
+![License: GPL v3](https://img.shields.io/badge/license-GPL%20v3-blue.svg)
 
 > **Language:** **English** | [Русский](README.ru.md)
 
@@ -106,7 +106,8 @@ On Windows, run [`build_windows.bat`](build_windows.bat) to build standalone `Py
 
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE). You may use, fork, modify, and distribute PyCaesar for any noncommercial purpose, as long as every copy carries the license text (or URL) and the `Required Notice` line. Commercial use is **not** allowed: selling the engine, GUI, or forks of them, or embedding them into commercial products/services. For commercial terms, contact the author.
+Copyright (c) 2026 [@dhehdjebejen-beep](https://github.com/dhehdjebejen-beep).  
+Licensed under the **[GNU General Public License v3.0](LICENSE)** (`GPL-3.0-only`), matching the licenses of its core dependencies (`PyQt6` and `python-chess`). Any derivative works or distributions must preserve copyright notices and remain open source under GPL v3.0.
 
 ## Author
 
