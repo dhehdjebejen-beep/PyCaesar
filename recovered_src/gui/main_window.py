@@ -341,6 +341,18 @@ class MainWindow(QMainWindow):
         self._hint_timer.setSingleShot(True)
         self._hint_timer.timeout.connect(self._launch_hint_analysis)
 
+        # Отдельный движок полной силы (уровень 10) исключительно для вертикальной
+        # шкалы оценки (EvalBar), чтобы она всегда показывала объективную оценку
+        # позиции независимо от выбранного уровня бота/подсказок.
+        self._eval_engine = ChessEngine()
+        self.eval_worker = EngineWorker(self._eval_engine, self)
+        self.eval_worker.progress.connect(self._on_eval_progress)
+        self.eval_worker.result_ready.connect(self._on_eval_result)
+        self._eval_request_id = 0
+        self._eval_timer = QTimer(self)
+        self._eval_timer.setSingleShot(True)
+        self._eval_timer.timeout.connect(self._launch_eval_bar_search)
+
     def _update_buttons(self):
         can_undo = len(self.move_history) > 0 and not self._engine_thinking
         can_redo = len(self.redo_stack) > 0 and not self._engine_thinking
@@ -414,6 +426,8 @@ class MainWindow(QMainWindow):
         self.eval_bar.setVisible(self._eval_visible)
         if self._eval_visible:
             self._refresh_eval()
+        else:
+            self._stop_eval_bar_search()
 
     def _show_settings(self):
         """Настройки движка: время на ход, уровень силы и режим подсказок."""
@@ -579,6 +593,7 @@ class MainWindow(QMainWindow):
                 return
 
         self._stop_hint_analysis()
+        self._stop_eval_bar_search()
         self._engine_request_id += 1
         if self.engine_worker.isRunning():
             self.engine_worker.terminate()
@@ -603,6 +618,7 @@ class MainWindow(QMainWindow):
             return
 
         self._stop_hint_analysis()
+        self._stop_eval_bar_search()
         self._engine_request_id += 1
         if self.engine_worker.isRunning():
             self.engine_worker.terminate()
@@ -645,6 +661,52 @@ class MainWindow(QMainWindow):
         static_eval = self.engine.evaluate_position(self.board)
         white_score = ChessEngine.score_to_white_perspective(static_eval, self.board.turn)
         self._update_eval_bar(white_score)
+        if self._eval_visible and not self.board.is_game_over():
+            self._start_eval_bar_search()
+
+    def _stop_eval_bar_search(self):
+        self._eval_timer.stop()
+        self._eval_request_id += 1
+        self.eval_worker.cancel()
+
+    def _start_eval_bar_search(self):
+        self._stop_eval_bar_search()
+        if not self._eval_visible or not self._engine_output_allowed() or self.board.is_game_over():
+            return
+        # Если в ЧвЧ и так выбран 10-й уровень для текущей стороны,
+        # hint_worker сам обновляет EvalBar на полной силе — не дублируем поиск.
+        if self.game_mode == MODE_HVH and self.engine_level >= self.DEFAULT_LEVEL:
+            idx = self.analysis_mode
+            hint_covers_turn = (
+                idx == self.ANALYSIS_BOTH
+                or (idx == self.ANALYSIS_WHITE and self.board.turn == chess.WHITE)
+                or (idx == self.ANALYSIS_BLACK and self.board.turn == chess.BLACK)
+            )
+            if hint_covers_turn:
+                return
+        self._eval_timer.start(40)
+
+    def _launch_eval_bar_search(self):
+        if not self._eval_visible or not self._engine_output_allowed() or self.board.is_game_over():
+            return
+        self._eval_request_id += 1
+        # Оценка шкалы всегда считается на полной силе (уровень 10) с быстрым
+        # бюджетом 0.45 с (на Cython это глубина 11–13 и объективная оценка 2637 Elo).
+        self.eval_worker.setup(
+            self.board, time_limit=0.45, request_id=self._eval_request_id,
+            use_book=False, multipv=1,
+        )
+        self.eval_worker.start()
+
+    def _on_eval_progress(self, multi_pv: list, score: int, depth: int, nodes: int, request_id: int):
+        if request_id != self._eval_request_id or not self._eval_visible:
+            return
+        self._update_eval_bar(score)
+
+    def _on_eval_result(self, move: list | chess.Move | None, score: int, depth: int, request_id: int):
+        if request_id != self._eval_request_id or not self._eval_visible or move is None:
+            return
+        self._update_eval_bar(score)
 
     def _update_pgn(self):
         """
@@ -748,6 +810,7 @@ class MainWindow(QMainWindow):
 
         if not allowed:
             self._stop_hint_analysis()
+            self._stop_eval_bar_search()
             self.board_widget.set_best_move(None)
             self._eval_visible = False
             self.eval_bar.setVisible(False)
@@ -842,7 +905,8 @@ class MainWindow(QMainWindow):
         # прячем, а тот же самый смысл текстом оставлять нелогично.
         # Кнопка «📊» служит явным согласием их видеть.
         if self._eval_visible:
-            self._update_eval_bar(score)
+            if self.engine_level >= self.DEFAULT_LEVEL:
+                self._update_eval_bar(score)
             line = (f'🤔 Движок думает…  глубина {depth}'
                     f'  •  оценка {ChessEngine.score_to_display(score)}')
             self._update_status(f'Движок думает… глубина {depth}')
@@ -867,14 +931,15 @@ class MainWindow(QMainWindow):
             return
 
         self.board_widget.set_best_move(multi_pv[:2])
-        self._update_eval_bar(score)
+        if self.engine_level >= self.DEFAULT_LEVEL:
+            self._update_eval_bar(score)
 
         display = ChessEngine.score_to_display(score)
         side = 'белых' if self.board.turn == chess.WHITE else 'чёрных'
         self.info_label.setText(
-            f'🔎 Анализ для {side}: {best_move.uci()}  •  оценка {display}  •  глубина {depth}'
+            f'🔎 Анализ (ур. {self.engine_level}) для {side}: {best_move.uci()}  •  оценка {display}  •  глубина {depth}'
         )
-        self._update_status(f'Анализ… глубина {depth} | {display}')
+        self._update_status(f'Анализ (ур. {self.engine_level})… глубина {depth} | {display}')
 
     def _on_engine_result(self, move: list | chess.Move | None, score: int, depth: int, request_id: int):
         if request_id != self._engine_request_id:
@@ -910,7 +975,10 @@ class MainWindow(QMainWindow):
         self.board_widget.set_last_move(best_move)
         self.board_widget.unlock_input()
 
-        self._update_eval_bar(score)
+        if self.engine_level >= self.DEFAULT_LEVEL and depth > 0:
+            self._update_eval_bar(score)
+        elif self._eval_visible:
+            self._refresh_eval()
         self._update_pgn()
         self._update_buttons()
 
@@ -919,7 +987,8 @@ class MainWindow(QMainWindow):
             # Показывать её на шкале нельзя, иначе весь дебют шкала врёт «0.00».
             self._update_status(f'Движок: {best_move.uci()} | 📖 Из дебютной книги')
             self.info_label.setText(f'📖 Ход из дебютной книги: {best_move.uci()}')
-            self._refresh_eval()
+            if self._eval_visible:
+                self._refresh_eval()
         else:
             if self._eval_visible:
                 display = ChessEngine.score_to_display(score)
@@ -951,12 +1020,15 @@ class MainWindow(QMainWindow):
             return
 
         self.board_widget.set_best_move(move[:2] if isinstance(move, list) else move)
-        self._update_eval_bar(score)
+        if self.engine_level >= self.DEFAULT_LEVEL:
+            self._update_eval_bar(score)
 
         display = ChessEngine.score_to_display(score)
         side = 'белых' if self.board.turn == chess.WHITE else 'чёрных'
-        self.info_label.setText(f'💡 Лучший ход для {side}: {best_move.uci()}  •  Оценка: {display}  •  Глубина: {depth}')
-        self._update_status(f'Подсказка: {best_move.uci()} | Оценка: {display} | Глубина: {depth}')
+        self.info_label.setText(
+            f'💡 Подсказка (ур. {self.engine_level}) для {side}: {best_move.uci()}  •  Оценка: {display}  •  Глубина: {depth}'
+        )
+        self._update_status(f'Подсказка (ур. {self.engine_level}): {best_move.uci()} | Оценка: {display} | Глубина: {depth}')
 
     def _update_eval_bar(self, score_white_cp: int):
         display = ChessEngine.score_to_display(score_white_cp)
@@ -975,12 +1047,16 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         self._hint_timer.stop()
+        self._eval_timer.stop()
         if self.engine_worker.isRunning():
             self.engine_worker.terminate()
         if self.hint_worker.isRunning():
             self.hint_worker.terminate()
+        if self.eval_worker.isRunning():
+            self.eval_worker.terminate()
         self.engine.close()
         self._hint_engine.close()
+        self._eval_engine.close()
         super().closeEvent(event)
 
     def _check_game_over(self) -> bool:
@@ -1020,6 +1096,7 @@ class MainWindow(QMainWindow):
 
     def _new_game(self):
         self._stop_hint_analysis()
+        self._stop_eval_bar_search()
         self._engine_request_id += 1
         if self.engine_worker.isRunning():
             self.engine_worker.terminate()
